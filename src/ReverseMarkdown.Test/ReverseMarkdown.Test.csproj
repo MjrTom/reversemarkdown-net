@@ -1,21 +1,21 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net6.0;net7.0;net8.0</TargetFrameworks>
+    <TargetFramework>net8.0</TargetFramework>
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\ReverseMarkdown\ReverseMarkdown.csproj" />
-    <PackageReference Include="MarkdownSnippets.MsBuild" Version="27.0.2">
+    <PackageReference Include="MarkdownSnippets.MsBuild">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Verify.Xunit" Version="29.3.0" />
-    <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.0.2">
+    <PackageReference Include="Verify.Xunit" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
   </ItemGroup>
   <ItemGroup>
     <None Update="ConverterTests.When_Span_with_newline_Should_Convert_Properly.verified.md">
@@ -53,6 +53,6 @@
     </None>
     <None Update="ConverterTests.Bug393_RegressionWithVaryingNewLines.verified.md">
       <DependentUpon>ConverterTests.WhenThereIsPreTag_ThenConvertToMarkdownPre.verified.md</DependentUpon>
-    </None> 
+    </None>
   </ItemGroup>
 </Project>
