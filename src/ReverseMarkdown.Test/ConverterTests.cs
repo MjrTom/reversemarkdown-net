@@ -542,6 +542,32 @@ namespace ReverseMarkdown.Test
         }
 
         [Fact]
+        public Task WhenThereIsInputListWithGithubFlavoredEnabled_ThenConvertToMarkdownCheckList()
+        {
+            var html = "<ul><li><input type=\"checkbox\" disabled> Unchecked</li><li><input type=\"checkbox\" checked> Checked</li></ul>";
+
+            var config = new Config
+            {
+                GithubFlavored = true,
+            };
+
+            return CheckConversion(html, config);
+        }
+
+        [Fact]
+        public Task WhenThereIsInputListWithGithubFlavoredDisabled_ThenConvertToTypicalMarkdownList()
+        {
+            var html = "<ul><li><input type=\"checkbox\" disabled> Unchecked</li><li><input type=\"checkbox\" checked> Checked</li></ul>";
+
+            var config = new Config
+            {
+                GithubFlavored = false,
+            };
+
+            return CheckConversion(html, config);
+        }
+
+        [Fact]
         public Task WhenThereIsOrderedList_ThenConvertToMarkdownList()
         {
             var html = "This text has ordered list.<ol><li>Item1</li><li>Item2</li></ol>";
@@ -1242,7 +1268,7 @@ namespace ReverseMarkdown.Test
         public Task Bug255_table_newline_char_issue()
         {
             var html =
-                $"<thead>{Environment.NewLine}<tr>{Environment.NewLine}<th style=\"text-align: left;\">Progression</th>{Environment.NewLine}<th style=\"text-align: left;\">Focus</th>{Environment.NewLine}</tr>{Environment.NewLine}</thead>";
+                $"<table><thead>{Environment.NewLine}<tr>{Environment.NewLine}<th style=\"text-align: left;\">Progression</th>{Environment.NewLine}<th style=\"text-align: left;\">Focus</th>{Environment.NewLine}</tr>{Environment.NewLine}</thead></table>";
             return CheckConversion(html);
         }
 
@@ -1469,6 +1495,28 @@ namespace ReverseMarkdown.Test
             var config = new Config { SlackFlavored = true };
             var converter = new Converter(config);
             Assert.Throws<SlackUnsupportedTagException>(() => converter.Convert(html));
+        }
+        
+        [Fact]
+        public Task Bug403_unexpectedBehaviourWhenTableBodyRowsWithTHCells()
+        {
+            var html = $"<table>{Environment.NewLine}<tr><th>Heading1</th><th>Heading2</th></tr>{Environment.NewLine}<tr><th>data 1</th><td>data 2</td></tr>{Environment.NewLine}<tr><th>data 3</th><td>data 4</td></tr>{Environment.NewLine}</table>";
+            var config = new Config { UnknownTags = Config.UnknownTagsOption.Bypass, ListBulletChar = '*', GithubFlavored = true};
+            return CheckConversion(html, config);
+        }
+
+        [Fact]
+        public Task EscapeMarkdownCharsInTextProperly()
+        {
+            var html = "<span>[a-z]([0-9]){0,4}</span>";
+            return CheckConversion(html);
+        }
+        
+        [Fact]
+        public Task Bug400_MissingSpanSpaceWithItalics()
+        {
+            var html = "<h3 data-reset-style=\"true\" data-anchor-id=\"8b5e184d-26f7-4d9a-80e0-bab2cd825457\"><i style=\"font-size: 14pt;\">What we thought:<span>&nbsp;</span></i><span style=\"color: rgb(41, 63, 77); font-size: 14pt; font-weight: normal;\">When we built Pages, we assumed that customers would use them like newsletters to share relevant, continually-updated information with field teams.</span><div style=\"text-align: left;\"><span style=\"line-height: 16px;\"><span><span height=\"18\" width=\"18\"><span></span></span><span></span></span></span></div></h3>";
+            return CheckConversion(html);
         }
     }
 }
