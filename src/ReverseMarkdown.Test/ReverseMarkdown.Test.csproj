@@ -1,22 +1,32 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
     <IsTestProject>true</IsTestProject>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Verify.Xunit" Version="31.9.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\ReverseMarkdown\ReverseMarkdown.csproj" />
-    <PackageReference Include="MarkdownSnippets.MsBuild" Version="27.0.2">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="Verify.Xunit" Version="30.1.0" />
-    <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.0" />
   </ItemGroup>
+  
   <ItemGroup>
     <None Update="ConverterTests.When_Span_with_newline_Should_Convert_Properly.verified.md">
       <DependentUpon>ConverterTests.cs</DependentUpon>
@@ -34,25 +44,25 @@
       <DependentUpon>ConverterTests.cs</DependentUpon>
     </None>
     <None Update="ConverterTests.Check_Converter_With_Unknown_Tag_Raise_Option.verified.txt">
-      <DependentUpon>ConverterTests.WhenThereIsSingleAsteriskInText_ThenConvertToMarkdownEscapedAsterisk.verified.md</DependentUpon>
+      <DependentUpon>ConverterTests.cs</DependentUpon>
     </None>
     <None Update="ConverterTests.Check_Converter_With_Unknown_Tag_Raise_Option.DotNet6_0.received.txt">
-      <DependentUpon>ConverterTests.WhenThereIsUnorderedListAndBulletIsAsterisk_ThenConvertToMarkdownList.verified.md</DependentUpon>
+      <DependentUpon>ConverterTests.cs</DependentUpon>
     </None>
     <None Update="ConverterTests.When_Anchor_Text_with_Underscore_Do_Not_Escape.verified.md">
-      <DependentUpon>ConverterTests.WhenThereIsSingleAsteriskInText_ThenConvertToMarkdownEscapedAsterisk.verified.md</DependentUpon>
+      <DependentUpon>ConverterTests.cs</DependentUpon>
     </None>
     <None Update="ConverterTests.When_Strikethrough_And_Nested_Strikethrough.verified.md">
-      <DependentUpon>ConverterTests.WhenThereIsUnorderedListAndBulletIsAsterisk_ThenConvertToMarkdownList.verified.md</DependentUpon>
+      <DependentUpon>ConverterTests.cs</DependentUpon>
     </None>
     <None Update="ConverterTests.When_Spaces_In_Inline_Tags_Should_Be_Retained.verified.md">
-      <DependentUpon>ConverterTests.WhenThereIsUnorderedListWithNestedOrderedList_ThenConvertToMarkdownListWithNestedList.verified.md</DependentUpon>
+      <DependentUpon>ConverterTests.cs</DependentUpon>
     </None>
     <None Update="ConverterTests.Bug391_AnchorTagUnnecessarilyIndented.verified.md">
-      <DependentUpon>ConverterTests.WhenThereIsSingleAsteriskInText_ThenConvertToMarkdownEscapedAsterisk.verified.md</DependentUpon>
+      <DependentUpon>ConverterTests.cs</DependentUpon>
     </None>
     <None Update="ConverterTests.Bug393_RegressionWithVaryingNewLines.verified.md">
-      <DependentUpon>ConverterTests.WhenThereIsPreTag_ThenConvertToMarkdownPre.verified.md</DependentUpon>
+      <DependentUpon>ConverterTests.cs</DependentUpon>
     </None>
     <None Update="ConverterTests.Bug403_unexpectedBehaviourWhenTableBodyRowsWithTHCells.verified.md">
       <DependentUpon>ConverterTests.cs</DependentUpon>
@@ -61,6 +71,45 @@
       <DependentUpon>ConverterTests.cs</DependentUpon>
     </None>
     <None Update="ConverterTests.Bug400_MissingSpanSpaceWithItalics.verified.md">
+      <DependentUpon>ConverterTests.cs</DependentUpon>
+    </None>
+    <None Update="ConverterTests.WhenTable_WithCaption_ThenCaptionAppearsAboveTable.verified.md">
+      <DependentUpon>ConverterTests.cs</DependentUpon>
+    </None>
+    <None Update="ConverterTests.WhenTable_WithCaptionAndGithubFlavored_ThenCaptionAppearsAboveTable.verified.md">
+      <DependentUpon>ConverterTests.cs</DependentUpon>
+    </None>
+    <None Update="ConverterTests.WhenTable_WithCaptionAndNoHeaderRow_EmptyRowHandling_ThenCaptionAppearsAboveTable.verified.md">
+      <DependentUpon>ConverterTests.cs</DependentUpon>
+    </None>
+    <None Update="ConverterTests.WhenTable_WithCaptionContainingMarkdownChars_ThenHandleProperly.verified.md">
+      <DependentUpon>ConverterTests.cs</DependentUpon>
+    </None>
+    <None Update="ConverterTests.WhenTable_WithCaptionContainingNestedTags_ThenExtractTextOnly.verified.md">
+      <DependentUpon>ConverterTests.cs</DependentUpon>
+    </None>
+    <None Update="ConverterTests.WhenTable_WithCaptionContainingNewlines_ThenHandleNewlines.verified.md">
+      <DependentUpon>ConverterTests.cs</DependentUpon>
+    </None>
+    <None Update="ConverterTests.WhenTable_WithCaptionContainingWhitespace_ThenTrimWhitespace.verified.md">
+      <DependentUpon>ConverterTests.cs</DependentUpon>
+    </None>
+    <None Update="ConverterTests.WhenTable_WithEmptyCaption_ThenConvertNormally.verified.md">
+      <DependentUpon>ConverterTests.cs</DependentUpon>
+    </None>
+    <None Update="ConverterTests.WhenTable_WithoutCaption_ThenConvertNormally.verified.md">
+      <DependentUpon>ConverterTests.cs</DependentUpon>
+    </None>
+    <None Update="ConverterTests.WhenThereIsBase64ImgTag_WithDefaultConfig_ThenIncludeInMarkdown.verified.md">
+      <DependentUpon>ConverterTests.cs</DependentUpon>
+    </None>
+    <None Update="ConverterTests.WhenThereIsBase64ImgTag_WithSaveToFileConfigButNoDirectory_ThenSkipImage.verified.md">
+      <DependentUpon>ConverterTests.cs</DependentUpon>
+    </None>
+    <None Update="ConverterTests.WhenThereIsBase64ImgTag_WithSkipConfig_ThenSkipImage.verified.md">
+      <DependentUpon>ConverterTests.cs</DependentUpon>
+    </None>
+    <None Update="ConverterTests.WhenThereIsBase64JpegImgTag_WithSkipConfig_ThenSkipImage.verified.md">
       <DependentUpon>ConverterTests.cs</DependentUpon>
     </None> 
   </ItemGroup>

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Threading.Tasks;
 using VerifyTests;
 using VerifyXunit;
@@ -55,7 +56,7 @@ namespace ReverseMarkdown.Test
                 @"Leave <a href=""http://example.com"">http</a>, <a href=""https://example.com"">https</a>, <a href=""ftp://example.com"">ftp</a>, <a href=""ftps://example.com"">ftps</a>, <a href=""file://example.com"">file</a>. Remove <a href=""data:text/plain;charset=UTF-8;page=21,the%20data:1234,5678"">data</a>, <a href=""tel://example.com"">tel</a> and <a href=""whatever://example.com"">whatever</a>";
             return CheckConversion(html, new Config
             {
-                WhitelistUriSchemes = new[] {"http", "https", "ftp", "ftps", "file"}
+                WhitelistUriSchemes = {"http", "https", "ftp", "ftps", "file"}
             });
         }
 
@@ -66,7 +67,7 @@ namespace ReverseMarkdown.Test
                 html: @"<a href=""example.com"">yeah</a>",
                 config: new Config
                 {
-                    WhitelistUriSchemes = new[] {""}
+                    WhitelistUriSchemes = {""}
                 }
             );
         }
@@ -78,7 +79,7 @@ namespace ReverseMarkdown.Test
                 html: @"<a href=""example.com"">yeah</a>",
                 config: new Config
                 {
-                    WhitelistUriSchemes = new[] {"whatever"}
+                    WhitelistUriSchemes = {"whatever"}
                 }
             );
         }
@@ -430,7 +431,7 @@ namespace ReverseMarkdown.Test
                 html: @"<img src=""data:image/gif;base64,R0lGODlhEAAQ...""/>",
                 config: new Config
                 {
-                    WhitelistUriSchemes = new[] {"http"}
+                    WhitelistUriSchemes = {"http"}
                 }
             );
         }
@@ -442,7 +443,7 @@ namespace ReverseMarkdown.Test
                 html: @"<img src=""data:image/gif;base64,R0lGODlhEAAQ...""/>",
                 config: new Config()
                 {
-                    WhitelistUriSchemes = new[] {"data"}
+                    WhitelistUriSchemes = {"data"}
                 }
             );
         }
@@ -454,7 +455,7 @@ namespace ReverseMarkdown.Test
                 html: @"<img src=""example.com""/>",
                 config: new Config()
                 {
-                    WhitelistUriSchemes = new[] {""}
+                    WhitelistUriSchemes = {""}
                 }
             );
         }
@@ -466,7 +467,7 @@ namespace ReverseMarkdown.Test
                 html: @"<img src=""data:image/gif;base64,R0lGODlhEAAQ...""/>",
                 config: new Config()
                 {
-                    WhitelistUriSchemes = new[] {"whatever"}
+                    WhitelistUriSchemes = {"whatever"}
                 }
             );
         }
@@ -478,7 +479,7 @@ namespace ReverseMarkdown.Test
                 html: @"<img src=""/example.gif""/>",
                 config: new Config()
                 {
-                    WhitelistUriSchemes = new[] {"data"}
+                    WhitelistUriSchemes = {"data"}
                 }
             );
         }
@@ -490,7 +491,7 @@ namespace ReverseMarkdown.Test
                 html: @"<img src=""/example.gif""/>",
                 config: new Config()
                 {
-                    WhitelistUriSchemes = new[] {"file"}
+                    WhitelistUriSchemes = {"file"}
                 }
             );
         }
@@ -501,9 +502,217 @@ namespace ReverseMarkdown.Test
             var html = @"<img src=""//example.gif""/>";
             var config = new Config
             {
-                WhitelistUriSchemes = new[] {"http"}
+                WhitelistUriSchemes = {"http"}
             };
             return CheckConversion(html, config);
+        }
+
+        [Fact]
+        public Task WhenThereIsBase64ImgTag_WithDefaultConfig_ThenIncludeInMarkdown()
+        {
+            var html = @"<p>Before</p><img alt=""test"" src=""data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==""/><p>After</p>";
+            return CheckConversion(html);
+        }
+
+        [Fact]
+        public Task WhenThereIsBase64ImgTag_WithSkipConfig_ThenSkipImage()
+        {
+            var html = @"<p>Before</p><img alt=""test"" src=""data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==""/><p>After</p>";
+            var config = new Config { Base64Images = Config.Base64ImageHandling.Skip };
+            return CheckConversion(html, config);
+        }
+
+        [Fact]
+        public Task WhenThereIsBase64JpegImgTag_WithSkipConfig_ThenSkipImage()
+        {
+            var html = @"<img alt=""jpeg"" src=""data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAA8A/9k=""/>";
+            var config = new Config { Base64Images = Config.Base64ImageHandling.Skip };
+            return CheckConversion(html, config);
+        }
+
+        [Fact]
+        public Task WhenThereIsBase64ImgTag_WithSaveToFileConfigButNoDirectory_ThenSkipImage()
+        {
+            var html = @"<p>Before</p><img alt=""test"" src=""data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==""/><p>After</p>";
+            var config = new Config
+            {
+                Base64Images = Config.Base64ImageHandling.SaveToFile
+                // Base64ImageSaveDirectory is not set
+            };
+            return CheckConversion(html, config);
+        }
+
+        [Fact]
+        public void WhenThereIsBase64PngImgTag_WithSaveToFileConfigAndValidDirectory_ThenSaveImageAndReferenceFilePath()
+        {
+            var tempDir = Path.Combine(Path.GetTempPath(), "reversemarkdown_test_" + Guid.NewGuid());
+            try
+            {
+                var html = @"<p>Before</p><img alt=""test"" src=""data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==""/><p>After</p>";
+                var config = new Config
+                {
+                    Base64Images = Config.Base64ImageHandling.SaveToFile,
+                    Base64ImageSaveDirectory = tempDir
+                };
+
+                var converter = new Converter(config);
+                var result = converter.Convert(html);
+
+                // Verify the image file was created
+                var imageFiles = Directory.GetFiles(tempDir, "image_*.png");
+                Assert.Single(imageFiles);
+                Assert.True(File.Exists(imageFiles[0]));
+
+                // Verify the markdown references the saved file path
+                Assert.Contains(imageFiles[0], result);
+                Assert.Contains("Before", result);
+                Assert.Contains("After", result);
+                Assert.Contains("![test]", result);
+            }
+            finally
+            {
+                // Clean up temp directory
+                if (Directory.Exists(tempDir))
+                {
+                    Directory.Delete(tempDir, true);
+                }
+            }
+        }
+
+        [Fact]
+        public void WhenThereIsBase64JpegImgTag_WithSaveToFileConfigAndValidDirectory_ThenSaveImageWithJpgExtension()
+        {
+            var tempDir = Path.Combine(Path.GetTempPath(), "reversemarkdown_test_" + Guid.NewGuid());
+            try
+            {
+                var html = @"<img alt=""jpeg"" src=""data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAA8A/9k=""/>";
+                var config = new Config
+                {
+                    Base64Images = Config.Base64ImageHandling.SaveToFile,
+                    Base64ImageSaveDirectory = tempDir
+                };
+
+                var converter = new Converter(config);
+                var result = converter.Convert(html);
+
+                // Verify the image file was created with .jpg extension
+                var imageFiles = Directory.GetFiles(tempDir, "image_*.jpg");
+                Assert.Single(imageFiles);
+                Assert.True(File.Exists(imageFiles[0]));
+                Assert.EndsWith(".jpg", imageFiles[0]);
+
+                // Verify the markdown references the saved file path
+                Assert.Contains(imageFiles[0], result);
+                Assert.Contains("![jpeg]", result);
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    Directory.Delete(tempDir, true);
+                }
+            }
+        }
+
+        [Fact]
+        public void WhenMultipleBase64ImgTags_WithSaveToFileConfig_ThenSaveAllImagesWithUniqueNames()
+        {
+            var tempDir = Path.Combine(Path.GetTempPath(), "reversemarkdown_test_" + Guid.NewGuid());
+            try
+            {
+                var html = @"<img alt=""first"" src=""data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==""/><img alt=""second"" src=""data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==""/>";
+                var config = new Config
+                {
+                    Base64Images = Config.Base64ImageHandling.SaveToFile,
+                    Base64ImageSaveDirectory = tempDir
+                };
+
+                var converter = new Converter(config);
+                var result = converter.Convert(html);
+
+                // Verify both image files were created with unique names
+                var imageFiles = Directory.GetFiles(tempDir, "image_*.png");
+                Assert.Equal(2, imageFiles.Length);
+
+                // Verify both images are referenced in the markdown
+                Assert.Contains("![first]", result);
+                Assert.Contains("![second]", result);
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    Directory.Delete(tempDir, true);
+                }
+            }
+        }
+
+        [Fact]
+        public void WhenBase64ImgTag_WithCustomFileNameGenerator_ThenUseCustomFileName()
+        {
+            var tempDir = Path.Combine(Path.GetTempPath(), "reversemarkdown_test_" + Guid.NewGuid());
+            try
+            {
+                var html = @"<img alt=""test"" src=""data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==""/>";
+                var config = new Config
+                {
+                    Base64Images = Config.Base64ImageHandling.SaveToFile,
+                    Base64ImageSaveDirectory = tempDir,
+                    Base64ImageFileNameGenerator = (index, mimeType) => $"custom_image_{index}"
+                };
+
+                var converter = new Converter(config);
+                var result = converter.Convert(html);
+
+                // Verify the custom filename was used
+                var imageFiles = Directory.GetFiles(tempDir, "custom_image_*.png");
+                Assert.Single(imageFiles);
+                Assert.Contains("custom_image_0", imageFiles[0]);
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    Directory.Delete(tempDir, true);
+                }
+            }
+        }
+
+        [Fact]
+        public void WhenBase64ImgTag_WithSaveToFileAndNonExistentDirectory_ThenCreateDirectoryAndSaveImage()
+        {
+            var tempDir = Path.Combine(Path.GetTempPath(), "reversemarkdown_test_" + Guid.NewGuid(), "nested", "path");
+            try
+            {
+                // Ensure the directory does not exist
+                Assert.False(Directory.Exists(tempDir));
+
+                var html = @"<img alt=""test"" src=""data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==""/>";
+                var config = new Config
+                {
+                    Base64Images = Config.Base64ImageHandling.SaveToFile,
+                    Base64ImageSaveDirectory = tempDir
+                };
+
+                var converter = new Converter(config);
+                var result = converter.Convert(html);
+
+                // Verify the directory was created
+                Assert.True(Directory.Exists(tempDir));
+
+                // Verify the image file was created
+                var imageFiles = Directory.GetFiles(tempDir, "image_*.png");
+                Assert.Single(imageFiles);
+            }
+            finally
+            {
+                // Clean up the entire temp directory tree
+                var rootTempDir = Path.Combine(Path.GetTempPath(), Path.GetFileName(Path.GetDirectoryName(Path.GetDirectoryName(tempDir))));
+                if (Directory.Exists(rootTempDir))
+                {
+                    Directory.Delete(rootTempDir, true);
+                }
+            }
         }
 
         [Fact]
@@ -1152,7 +1361,7 @@ namespace ReverseMarkdown.Test
                 @"This text has image <img alt=""alt"" src=""http://test.com/images/test.png"">. Next line of text";
             var config = new Config
             {
-                PassThroughTags = new[] {"img"}
+                PassThroughTags = ["img"]
             };
             return CheckConversion(html, config);
         }
@@ -1626,14 +1835,141 @@ namespace ReverseMarkdown.Test
         {
             // Tests deeper nesting (10 levels) to ensure performance remains linear after fix
             var html = "<p>L1<p>L2<p>L3<p>L4<p>L5<p>L6<p>L7<p>L8<p>L9<p>L10</p></p></p></p></p></p></p></p></p></p>";
-            
+
             var config = new Config
             {
                 GithubFlavored = true,
                 UnknownTags = Config.UnknownTagsOption.Bypass
             };
-            
+
             return CheckConversion(html, config);
+        }
+
+        [Fact]
+        public Task When_NestedTableIsInTable_LeaveNestedTableAsHtml()
+        {
+            // Issue #411: Nested tables should be left as HTML, similar to lists in tables
+            var html = "<table><tr><th>Step</th><th>Instructions</th></tr><tr><td>1</td><td><table><tr><th>Condition</th><th>Action</th></tr><tr><td>A</td><td>Do X</td></tr></table></td></tr></table>";
+            return CheckConversion(html);
+        }
+
+        [Fact]
+        public Task When_ComplexNestedTableIsInTable_LeaveNestedTableAsHtml()
+        {
+            // More complex nested table scenario
+            var html = @"<table>
+                <tr>
+                    <th>Category</th>
+                    <th>Details</th>
+                </tr>
+                <tr>
+                    <td>Products</td>
+                    <td>
+                        <table>
+                            <tr><th>Name</th><th>Price</th></tr>
+                            <tr><td>Item 1</td><td>$10</td></tr>
+                            <tr><td>Item 2</td><td>$20</td></tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>";
+            return CheckConversion(html);
+        }
+
+        [Fact]
+        public Task When_MultipleNestedTablesInTable_LeaveAllNestedTablesAsHtml()
+        {
+            // Multiple nested tables in different cells
+            var html = @"<table>
+                <tr>
+                    <th>Column 1</th>
+                    <th>Column 2</th>
+                </tr>
+                <tr>
+                    <td>
+                        <table>
+                            <tr><td>Nested 1</td></tr>
+                        </table>
+                    </td>
+                    <td>
+                        <table>
+                            <tr><td>Nested 2</td></tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>";
+            return CheckConversion(html);
+        }
+
+        [Fact]
+        public Task WhenTable_WithCaption_ThenCaptionAppearsAboveTable()
+        {
+            var html = "<table><caption>Monthly Sales Report</caption><tr><th>Month</th><th>Sales</th></tr><tr><td>January</td><td>$1000</td></tr></table>";
+            return CheckConversion(html);
+        }
+
+        [Fact]
+        public Task WhenTable_WithoutCaption_ThenConvertNormally()
+        {
+            var html = "<table><tr><th>Month</th><th>Sales</th></tr><tr><td>January</td><td>$1000</td></tr></table>";
+            return CheckConversion(html);
+        }
+
+        [Fact]
+        public Task WhenTable_WithEmptyCaption_ThenConvertNormally()
+        {
+            var html = "<table><caption></caption><tr><th>Month</th><th>Sales</th></tr><tr><td>January</td><td>$1000</td></tr></table>";
+            return CheckConversion(html);
+        }
+
+        [Fact]
+        public Task WhenTable_WithCaptionContainingWhitespace_ThenTrimWhitespace()
+        {
+            var html = "<table><caption>   Table Caption   </caption><tr><th>Col1</th></tr><tr><td>Data1</td></tr></table>";
+            return CheckConversion(html);
+        }
+
+        [Fact]
+        public Task WhenTable_WithCaptionContainingMarkdownChars_ThenHandleProperly()
+        {
+            var html = "<table><caption>Sales Report [2024] - **Important**</caption><tr><th>Month</th><th>Sales</th></tr><tr><td>Jan</td><td>$100</td></tr></table>";
+            return CheckConversion(html);
+        }
+
+        [Fact]
+        public Task WhenTable_WithCaptionAndNoHeaderRow_EmptyRowHandling_ThenCaptionAppearsAboveTable()
+        {
+            var html = "<table><caption>Data Table</caption><tr><td>data1</td><td>data2</td></tr><tr><td>data3</td><td>data4</td></tr></table>";
+            var config = new Config
+            {
+                TableWithoutHeaderRowHandling = Config.TableWithoutHeaderRowHandlingOption.EmptyRow
+            };
+            return CheckConversion(html, config);
+        }
+
+        [Fact]
+        public Task WhenTable_WithCaptionContainingNestedTags_ThenExtractTextOnly()
+        {
+            var html = "<table><caption>Sales <strong>Report</strong> for <em>2024</em></caption><tr><th>Month</th></tr><tr><td>Jan</td></tr></table>";
+            return CheckConversion(html);
+        }
+
+        [Fact]
+        public Task WhenTable_WithCaptionAndGithubFlavored_ThenCaptionAppearsAboveTable()
+        {
+            var html = "<table><caption>Code Review Summary</caption><tr><th>PR</th><th>Status</th></tr><tr><td>#123</td><td>Approved</td></tr></table>";
+            var config = new Config
+            {
+                GithubFlavored = true
+            };
+            return CheckConversion(html, config);
+        }
+
+        [Fact]
+        public Task WhenTable_WithCaptionContainingNewlines_ThenHandleNewlines()
+        {
+            var html = $"<table><caption>Multi{Environment.NewLine}Line{Environment.NewLine}Caption</caption><tr><th>Col</th></tr><tr><td>Data</td></tr></table>";
+            return CheckConversion(html);
         }
     }
 }
