@@ -7,10 +7,23 @@ namespace ReverseMarkdown.Converters {
         public Div(Converter converter) : base(converter)
         {
             Converter.Register("div", this);
+            Converter.Register("header", this);
+            Converter.Register("main", this);
+            Converter.Register("footer", this);
+            Converter.Register("section", this);
+            Converter.Register("article", this);
+            Converter.Register("nav", this);
+            Converter.Register("figure", this);
+            Converter.Register("figcaption", this);
         }
 
         public override void Convert(TextWriter writer, HtmlNode node)
         {
+            if (Converter.Config.CommonMark) {
+                writer.Write(node.OuterHtml);
+                return;
+            }
+
             while (node.ChildNodes.Count == 1 && node.FirstChild.Name == "div") {
                 node = node.FirstChild;
             }

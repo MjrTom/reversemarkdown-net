@@ -11,13 +11,20 @@ using ReverseMarkdown.Helpers;
 
 
 namespace ReverseMarkdown {
+    /// <summary>
+    /// Converts HTML to Markdown. Thread-safe for concurrent use.
+    /// </summary>
     public class Converter {
         protected readonly IDictionary<string, IConverter> Converters = new Dictionary<string, IConverter>();
         protected readonly IConverter PassThroughTagsConverter;
         protected readonly IConverter DropTagsConverter;
         protected readonly IConverter ByPassTagsConverter;
+        private readonly Dictionary<string, UnknownTagReplacer> _unknownTagReplacerConverters = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, AliasTagConverter> _tagAliasConverters = new(StringComparer.OrdinalIgnoreCase);
 
-        public ConverterContext Context { get; } = new();
+        private readonly System.Threading.AsyncLocal<ConverterContext?> _context = new();
+
+        public ConverterContext Context => _context.Value ??= new ConverterContext();
 
         public Converter() : this(new Config())
         {
@@ -67,9 +74,15 @@ namespace ReverseMarkdown {
             }
 
             // For each type to register ...
-            foreach (var converterType in types)
+            foreach (var converterType in types) {
+                var ctor = converterType.GetConstructor(new[] { typeof(Converter) });
+                if (ctor is null) {
+                    continue;
+                }
+
                 // ... activate them
                 Activator.CreateInstance(converterType, this);
+            }
 
             // register the unknown tags converters
             PassThroughTagsConverter = new PassThrough(this);
@@ -81,6 +94,36 @@ namespace ReverseMarkdown {
 
         public virtual string Convert(string html)
         {
+            using var _ = EnsureContext();
+
+            html = html.ReplaceLineEndings("\n");
+
+            if (Config.CommonMark && LooksLikeCommonMarkHtmlBlock(html)) {
+                return ApplyOutputLineEndings(html);
+            }
+
+            if (Config.CommonMark) {
+                var trimmed = html.TrimStart('\uFEFF', ' ', '\t', '\r', '\n');
+                if (trimmed.StartsWith("</", StringComparison.Ordinal) ||
+                    html.Contains("<!--", StringComparison.Ordinal) ||
+                    html.Contains("<![CDATA[", StringComparison.Ordinal)) {
+                    return ApplyOutputLineEndings(html);
+                }
+
+                var paragraphTrimmed = html.Trim();
+                if (paragraphTrimmed.StartsWith("<p>", StringComparison.OrdinalIgnoreCase) &&
+                    paragraphTrimmed.EndsWith("</p>", StringComparison.OrdinalIgnoreCase)) {
+                    var inner = paragraphTrimmed.Substring(3, paragraphTrimmed.Length - 7);
+                    if (inner.TrimStart().StartsWith("</", StringComparison.Ordinal)) {
+                        return ApplyOutputLineEndings(inner);
+                    }
+                }
+            }
+
+            if (Config.CommonMark) {
+                html = html.Replace("\u00A0", "&nbsp;");
+            }
+
             html = Cleaner.PreTidy(html, Config.RemoveComments);
 
             var doc = new HtmlDocument();
@@ -95,15 +138,56 @@ namespace ReverseMarkdown {
 
             var result = ConvertNode(root);
 
-            // cleanup multiple new lines
-            result = Regex.Replace(result, @"(^\p{Zs}*(\r\n|\n)){2,}", Environment.NewLine, RegexOptions.Multiline);
+            if (!Config.CommonMark) {
+                // cleanup multiple new lines
+                result = Regex.Replace(result, @"(^\p{Zs}*(\r\n|\n)){2,}", Environment.NewLine, RegexOptions.Multiline);
+            }
 
             if (Config.SlackFlavored) {
                 result = Cleaner.SlackTidy(result);
             }
 
-            return Config.CleanupUnnecessarySpaces ? result.Trim().FixMultipleNewlines() : result;
+            if (!Config.CleanupUnnecessarySpaces) {
+                return ApplyOutputLineEndings(result);
+            }
+
+            if (Config.CommonMark) {
+                result = result.TrimEnd();
+                result = result.TrimStart('\r', '\n');
+                return ApplyOutputLineEndings(result);
+            }
+
+            return ApplyOutputLineEndings(result.Trim().FixMultipleNewlines());
         }
+
+        private string ApplyOutputLineEndings(string content)
+        {
+            var lineEnding = string.IsNullOrEmpty(Config.OutputLineEnding)
+                ? Environment.NewLine
+                : Config.OutputLineEnding;
+            return content.ReplaceLineEndings(lineEnding);
+        }
+
+        private static bool LooksLikeCommonMarkHtmlBlock(string html)
+        {
+            if (string.IsNullOrWhiteSpace(html)) {
+                return false;
+            }
+
+            var trimmed = html.TrimStart('\uFEFF', ' ', '\t', '\r', '\n');
+            if (trimmed.StartsWith("<!--", StringComparison.Ordinal) ||
+                trimmed.StartsWith("<?", StringComparison.Ordinal) ||
+                trimmed.StartsWith("<!", StringComparison.Ordinal)) {
+                return true;
+            }
+
+            return HtmlBlockStart.IsMatch(trimmed);
+        }
+
+        private static readonly Regex HtmlBlockStart = new(
+            @"^\s*<\/?(div|table|pre|script|style|iframe|article|section|header|footer|nav|aside|blockquote|h[1-6]|hr|details|summary|figure|figcaption|main|form|center|address|body|html|head|link|meta|title|tbody|thead|tfoot|tr|td|th)\b",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled
+        );
 
         public virtual void Register(string tagName, IConverter converter)
         {
@@ -134,6 +218,7 @@ namespace ReverseMarkdown {
 
         public virtual string ConvertNode(HtmlNode node)
         {
+            using var _ = EnsureContext();
             using var writer = CreateWriter(node);
             ConvertNode(writer, node);
             return writer.GetStringBuilder().ToString();
@@ -141,6 +226,7 @@ namespace ReverseMarkdown {
 
         public virtual void ConvertNode(TextWriter writer, HtmlNode node)
         {
+            using var _ = EnsureContext();
             var converter = Lookup(node.Name);
             Context.Enter(node);
             converter.Convert(writer, node);
@@ -154,7 +240,69 @@ namespace ReverseMarkdown {
                 return PassThroughTagsConverter;
             }
 
-            return Converters.TryGetValue(tagName, out var converter) ? converter : GetDefaultConverter(tagName);
+            if (Converters.TryGetValue(tagName, out var converter)) {
+                return converter;
+            }
+
+            var aliasTargetTag = ResolveAliasTarget(tagName);
+            if (aliasTargetTag is not null) {
+                return GetAliasConverter(tagName, aliasTargetTag);
+            }
+
+            if (Config.UnknownTagsReplacer.TryGetValue(tagName, out var replacement)) {
+                return GetUnknownTagReplacer(tagName, replacement);
+            }
+
+            return GetDefaultConverter(tagName);
+        }
+
+        private IConverter GetUnknownTagReplacer(string tagName, string replacement)
+        {
+            if (_unknownTagReplacerConverters.TryGetValue(tagName, out var converter) &&
+                string.Equals(converter.Replacement, replacement, StringComparison.Ordinal)) {
+                return converter;
+            }
+
+            var replacer = new UnknownTagReplacer(this, tagName, replacement);
+            _unknownTagReplacerConverters[tagName] = replacer;
+            return replacer;
+        }
+
+        private IConverter GetAliasConverter(string tagName, string targetTag)
+        {
+            if (_tagAliasConverters.TryGetValue(tagName, out var converter) &&
+                string.Equals(converter.TargetTag, targetTag, StringComparison.OrdinalIgnoreCase)) {
+                return converter;
+            }
+
+            var alias = new AliasTagConverter(this, tagName, targetTag);
+            _tagAliasConverters[tagName] = alias;
+            return alias;
+        }
+
+        private string? ResolveAliasTarget(string tagName)
+        {
+            if (!Config.TagAliases.TryGetValue(tagName, out var targetTag) || string.IsNullOrWhiteSpace(targetTag)) {
+                return null;
+            }
+
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { tagName };
+
+            while (true) {
+                if (string.Equals(targetTag, tagName, StringComparison.OrdinalIgnoreCase)) {
+                    return null;
+                }
+
+                if (!visited.Add(targetTag)) {
+                    return null;
+                }
+
+                if (!Config.TagAliases.TryGetValue(targetTag, out var nextTag) || string.IsNullOrWhiteSpace(nextTag)) {
+                    return targetTag;
+                }
+
+                targetTag = nextTag;
+            }
         }
 
         private IConverter GetDefaultConverter(string tagName)
@@ -165,6 +313,42 @@ namespace ReverseMarkdown {
                 Config.UnknownTagsOption.Bypass => ByPassTagsConverter,
                 _ => throw new UnknownTagException(tagName)
             };
+        }
+
+        private IDisposable EnsureContext()
+        {
+            if (_context.Value is not null) {
+                return NoopDisposable.Instance;
+            }
+
+            _context.Value = new ConverterContext();
+            return new ContextScope(_context);
+        }
+
+        private sealed class ContextScope : IDisposable {
+            private readonly System.Threading.AsyncLocal<ConverterContext?> _scope;
+
+            public ContextScope(System.Threading.AsyncLocal<ConverterContext?> scope)
+            {
+                _scope = scope;
+            }
+
+            public void Dispose()
+            {
+                _scope.Value = null;
+            }
+        }
+
+        private sealed class NoopDisposable : IDisposable {
+            public static readonly NoopDisposable Instance = new();
+
+            private NoopDisposable()
+            {
+            }
+
+            public void Dispose()
+            {
+            }
         }
     }
 }

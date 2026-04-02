@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using HtmlAgilityPack;
+using ReverseMarkdown.Helpers;
 
 
 namespace ReverseMarkdown.Converters {
@@ -22,22 +23,65 @@ namespace ReverseMarkdown.Converters {
                 }
             }
 
-            writer.Write(IndentationFor(node, true));
+            var baseIndentation = IndentationFor(node, true);
+            writer.Write(baseIndentation);
 
             if (node.ParentNode is { Name: "ol" }) {
                 // index are zero based hence add one
-                var index = node.ParentNode.SelectNodes("./li").IndexOf(node) + 1;
+                var start = node.ParentNode.GetAttributeValue("start", 1);
+                var index = node.ParentNode.SelectNodes("./li").IndexOf(node) + start;
                 writer.Write(index);
-                writer.Write(". ");
+                writer.Write(Converter.Config.TelegramMarkdownV2 ? "\\. " : ". ");
             }
             else {
-                writer.Write(Converter.Config.ListBulletChar);
+                if (Converter.Config.TelegramMarkdownV2) {
+                    writer.Write(StringUtils.EscapeTelegramMarkdownV2(Converter.Config.ListBulletChar.ToString()));
+                }
+                else {
+                    writer.Write(Converter.Config.ListBulletChar);
+                }
+
                 writer.Write(' ');
             }
 
-            var content = ContentFor(node).Trim();
-            writer.Write(content);
-            writer.WriteLine();
+            var content = ContentFor(node);
+
+            if (!Converter.Config.CommonMark) {
+                content = content.Trim();
+                writer.Write(content);
+                writer.WriteLine();
+                return;
+            }
+
+            var markerLength = node.ParentNode is { Name: "ol" }
+                ? ($"{node.ParentNode.GetAttributeValue("start", 1) + node.ParentNode.SelectNodes("./li").IndexOf(node)}. ").Length
+                : 2;
+
+            var indentation = baseIndentation + new string(' ', markerLength);
+            var lines = content.ReplaceLineEndings("\n").Split('\n');
+
+            if (lines.Length == 0) {
+                writer.WriteLine();
+                return;
+            }
+
+            writer.WriteLine(lines[0].TrimEnd());
+
+            for (var i = 1; i < lines.Length; i++) {
+                var line = lines[i];
+                if (line.Length == 0) {
+                    writer.WriteLine();
+                    continue;
+                }
+
+                if (line[0] == ' ' || line[0] == '\t') {
+                    writer.WriteLine(line);
+                    continue;
+                }
+
+                writer.Write(indentation);
+                writer.WriteLine(line);
+            }
         }
 
         private string ContentFor(HtmlNode node)

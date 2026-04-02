@@ -11,9 +11,46 @@ namespace ReverseMarkdown
 
         public bool SlackFlavored { get; set; } = false;
 
+        /// <summary>
+        /// Telegram MarkdownV2 conversion.
+        /// </summary>
+        public bool TelegramMarkdownV2 { get; set; } = false;
+
+        /// <summary>
+        /// Enable CommonMark compatible emphasis handling (avoid intraword emphasis by inserting spaces).
+        /// </summary>
+        public bool CommonMark { get; set; } = false;
+
+        /// <summary>
+        /// When CommonMark is enabled, insert spaces to avoid intraword emphasis.
+        /// </summary>
+        public bool CommonMarkIntrawordEmphasisSpacing { get; set; } = false;
+
+        /// <summary>
+        /// When CommonMark is enabled, emit HTML for inline tags (em/strong/a/img) to avoid delimiter edge cases.
+        /// </summary>
+        public bool CommonMarkUseHtmlInlineTags { get; set; } = true;
+
+        /// <summary>
+        /// Escape markdown line starts (headings, lists, block markers) in plain text output.
+        /// </summary>
+        public bool EscapeMarkdownLineStarts { get; set; } = false;
+
+        /// <summary>
+        /// Output line endings to use for the generated markdown.
+        /// Defaults to <see cref="Environment.NewLine" />.
+        /// </summary>
+        public string OutputLineEnding { get; set; } = Environment.NewLine;
+
         public bool SuppressDivNewlines { get; set; } = false;
 
         public bool RemoveComments { get; set; } = false;
+
+        /// <summary>
+        /// When enabled, treat &lt;pre&gt; (and &lt;pre&gt;&lt;code&gt;) content as normal HTML
+        /// instead of converting it to a code block.
+        /// </summary>
+        public bool ConvertPreContentAsHtml { get; set; } = false;
 
         /// <summary>
         /// Specify which schemes (without trailing colon) are to be allowed for &lt;a&gt; and &lt;img&gt; tags. Others will be bypassed. By default, allows everything.
@@ -56,6 +93,17 @@ namespace ReverseMarkdown
         /// Option to pass a list of tags to pass through as is without any processing
         /// </summary>
         public HashSet<string> PassThroughTags { get; set; } = [];
+
+        /// <summary>
+        /// Optional replacements for unknown tags. The key is the tag name and the value is the
+        /// markdown wrapper to use as both prefix and suffix around converted content.
+        /// </summary>
+        public Dictionary<string, string> UnknownTagsReplacer { get; } = new (StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Optional alias map to treat a tag as another tag during conversion.
+        /// </summary>
+        public Dictionary<string, string> TagAliases { get; } = new (StringComparer.OrdinalIgnoreCase);
 
         public enum UnknownTagsOption
         {

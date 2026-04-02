@@ -7,6 +7,37 @@ ReverseMarkdown is a Html to Markdown converter library in C#. Conversion is ver
 If you have used and benefitted from this library. Please feel free to sponsor me!<br>
 <a href="https://github.com/sponsors/mysticmind" target="_blank"><img height="30" style="border:0px;height:36px;" src="https://img.shields.io/static/v1?label=GitHub Sponsor&message=%E2%9D%A4&logo=GitHub" border="0" alt="GitHub Sponsor" /></a>
 
+## Features
+
+**Core conversion**
+- Supports common HTML tags like h1-h6, p, em, strong, i, b, blockquote, code, img, a, hr, li, ol, ul, table, tr, th, td, br, pre, del, strike, sup, dl, dt, dd, div, and span
+- Supports nested lists
+- Improved performance with optimized text writer approach and O(1) ancestor lookups
+
+**Markdown flavors**
+- GitHub Flavoured Markdown conversion for br, pre, tasklists, and table. Use `var config = new ReverseMarkdown.Config(githubFlavoured:true);`. By default the table will always be converted to Github flavored markdown immaterial of this flag
+- Slack Flavoured Markdown conversion. Use `var config = new ReverseMarkdown.Config { SlackFlavored = true };`
+- Telegram MarkdownV2 conversion. Use `var config = new ReverseMarkdown.Config { TelegramMarkdownV2 = true };`
+- CommonMark-focused output with opt-in flags to preserve compatibility. Use `var config = new ReverseMarkdown.Config { CommonMark = true };` This mode may emit inline HTML for tricky emphasis/link cases unless you disable `CommonMarkUseHtmlInlineTags`.
+
+**Tables**
+- Support for nested tables (converted as HTML inside markdown)
+- Support for table captions (rendered as paragraph above table)
+- Configurable table header handling
+
+**Links and images**
+- Smart link handling and URI scheme whitelisting for links and images
+- Base64-encoded image handling with options to include as-is, skip, or save to disk
+
+**Extensibility and safety**
+- Tag aliasing and unknown tag replacement options for custom conversion behavior
+- Pass-through, bypass, drop, or raise strategies for unknown tags
+- Pre-tidy handling for malformed unclosed script/style tags
+
+**Formatting controls**
+- Configurable list bullets and default code block language
+- Comment removal and optional whitespace cleanup
+
 ## Usage
 
 Install the package from NuGet using `Install-Package ReverseMarkdown` or clone the repository and build it yourself.
@@ -55,13 +86,68 @@ var converter = new ReverseMarkdown.Converter(config);
 <sup><a href='/src/ReverseMarkdown.Test/Snippets.cs#L28-L44' title='Snippet source file'>snippet source</a> | <a href='#snippet-UsageWithConfig' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
+To treat `<pre>` (and `<pre><code>`) content as normal HTML instead of code blocks:
+
+```cs
+var config = new ReverseMarkdown.Config
+{
+    ConvertPreContentAsHtml = true
+};
+
+var converter = new ReverseMarkdown.Converter(config);
+```
+
+If you need to preserve markdown-like text as literal content (for example `# Heading` or `- Item`), either enable `EscapeMarkdownLineStarts` or use `CommonMark`:
+
+```cs
+var config = new ReverseMarkdown.Config
+{
+    EscapeMarkdownLineStarts = true,
+    // or CommonMark = true
+};
+
+var converter = new ReverseMarkdown.Converter(config);
+```
+
+### Telegram MarkdownV2 mode
+
+When `TelegramMarkdownV2` is enabled, ReverseMarkdown applies Telegram-compatible formatting and escaping rules:
+
+```cs
+var converter = new ReverseMarkdown.Converter(new ReverseMarkdown.Config
+{
+    TelegramMarkdownV2 = true
+});
+
+var html = "This is <strong>bold</strong>, <em>italic</em>, <del>strikethrough</del> and <a href=\"https://example.com/path_(one)?q=1)2\">a_b[c]</a>";
+var result = converter.Convert(html);
+// This is *bold*, _italic_, ~strikethrough~ and [a\_b\[c\]](https://example.com/path_(one\)?q=1\)2)
+```
+
+Notes:
+
+- Text and link labels escape Telegram-reserved characters.
+- Ordered and unordered list markers are escaped (`1\.` and `\-`).
+- `<img>` falls back to a link label (for example `[Image: alt](url)`).
+- `<table>` falls back to a preformatted code block representation.
+- `<sup>` falls back to caret notation (for example `x^2`).
+
 ## Configuration options
 
 * `DefaultCodeBlockLanguage` - Option to set the default code block language for Github style markdown if class based language markers are not available
 * `GithubFlavored` - Github style markdown for br, pre and table. Default is false
 * `SlackFlavored` - Slack style markdown formatting. When enabled, uses `*` for bold, `_` for italic, `~` for strikethrough, and `•` for list bullets. Default is false
+* `TelegramMarkdownV2` - Telegram MarkdownV2 formatting and escaping rules. When enabled, output escapes Telegram-reserved characters and uses Telegram-compatible emphasis and link syntax. For unsupported Telegram constructs, ReverseMarkdown falls back to readable text (`<img>` to link label, `<table>` to preformatted block, `<sup>` to caret notation).
+* `CommonMark` - Enable CommonMark-focused output rules. Default is false
+* `CommonMarkUseHtmlInlineTags` - When CommonMark is enabled, emit HTML for inline tags (`em`, `strong`, `a`, `img`) to avoid delimiter edge cases. Default is true
+* `CommonMarkIntrawordEmphasisSpacing` - When CommonMark is enabled, insert spaces to avoid intraword emphasis. Default is false
+  * Note: CommonMark is best used on its own. Combining `CommonMark` with `GithubFlavored` can produce mixed output; keep them separate unless you explicitly want that behavior.
+* `EscapeMarkdownLineStarts` - Escape markdown line starts (headings, lists, block markers) in plain text output. Default is false
+  * Note: If you need to preserve markdown-like text as literal content, enable `EscapeMarkdownLineStarts` or use `CommonMark`.
+* `OutputLineEnding` - Output line endings used in generated markdown. Default is `Environment.NewLine`
 * `CleanupUnnecessarySpaces` - Cleanup unnecessary spaces in the output. Default is true
 * `SuppressDivNewlines` - Removes prefixed newlines from `div` tags. Default is false
+* `ConvertPreContentAsHtml` - Treat `<pre>` (and `<pre><code>`) content as normal HTML instead of a code block. Default is false
 * `ListBulletChar` - Allows you to change the bullet character. Default value is `-`. Some systems expect the bullet character to be `*` rather than `-`, this config allows you to change it. Note: This option is ignored when `SlackFlavored` is enabled
 * `RemoveComments` - Remove comment tags with text. Default is false
 * `SmartHrefHandling` - How to handle `<a>` tag href attribute
@@ -76,6 +162,8 @@ var converter = new ReverseMarkdown.Converter(config);
   * `UnknownTagsOption.Drop` - Drop the unknown tag and its content
   * `UnknownTagsOption.Bypass` - Ignore the unknown tag but try to convert its content
   * `UnknownTagsOption.Raise` - Raise an error to let you know
+* `UnknownTagsReplacer` - Optional replacements for unknown tags. Key is tag name and value is the markdown wrapper used as prefix/suffix around converted content (example: `{ ["u"] = "*" }`).
+* `TagAliases` - Optional alias map to treat a tag as another tag during conversion (example: `{ ["u"] = "em" }`).
 * `PassThroughTags` - Pass a list of tags to pass through as-is without any processing.
 * `WhitelistUriSchemes` - Specify which schemes (without trailing colon) are to be allowed for `<a>` and `<img>` tags. Others will be bypassed (output text or nothing). By default allows everything.
 
@@ -92,6 +180,15 @@ var converter = new ReverseMarkdown.Converter(config);
   * `Base64ImageHandling.SaveToFile` - Save base64-encoded images to disk and reference the saved file path in markdown. Requires `Base64ImageSaveDirectory` to be set
 * `Base64ImageSaveDirectory` - When `Base64Images` is set to `SaveToFile`, specifies the directory path where images should be saved
 * `Base64ImageFileNameGenerator` - When `Base64Images` is set to `SaveToFile`, this function generates a filename for each saved image. The function receives the image index (int) and MIME type (string), and should return a filename without extension. If not specified, images will be named as `image_0`, `image_1`, etc.
+
+### Custom converter alias
+
+You can also register a tag to reuse another tag's converter directly:
+
+```cs
+var converter = new ReverseMarkdown.Converter();
+converter.Register("u", new ReverseMarkdown.Converters.AliasConverter(converter, "em"));
+```
 
 ### Base64 Image Handling Examples
 
@@ -183,17 +280,6 @@ var converter = new ReverseMarkdown.Converter(config);
 - TIFF (`image/tiff`)
 - WebP (`image/webp`)
 - SVG (`image/svg+xml`)
-
-## Features
-
-* Supports all the established html tags like h1, h2, h3, h4, h5, h6, p, em, strong, i, b, blockquote, code, img, a, hr, li, ol, ul, table, tr, th, td, br
-* Supports nested lists
-* Github Flavoured Markdown conversion supported for br, pre, tasklists and table. Use `var config = new ReverseMarkdown.Config(githubFlavoured:true);`. By default the table will always be converted to Github flavored markdown immaterial of this flag
-* Slack Flavoured Markdown conversion supported. Use `var config = new ReverseMarkdown.Config { SlackFlavored = true };`
-* Improved performance with optimized text writer approach and O(1) ancestor lookups
-* Support for nested tables (converted as HTML inside markdown)
-* Support for table captions (rendered as paragraph above table)
-* Base64-encoded image handling with options to include as-is, skip, or save to disk
 
 ## Breaking Changes
 

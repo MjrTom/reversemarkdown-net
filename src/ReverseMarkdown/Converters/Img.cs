@@ -18,6 +18,7 @@ namespace ReverseMarkdown.Converters {
                 throw new SlackUnsupportedTagException(node.Name);
             }
 
+            var altAttribute = node.Attributes["alt"];
             var alt = node.GetAttributeValue("alt", string.Empty);
             var src = node.GetAttributeValue("src", string.Empty);
 
@@ -58,6 +59,16 @@ namespace ReverseMarkdown.Converters {
                 }
             }
 
+            if (Converter.Config.TelegramMarkdownV2) {
+                WriteTelegramFallback(writer, alt, src, isBase64Image);
+                return;
+            }
+
+            if (Converter.Config.CommonMark && altAttribute == null) {
+                writer.Write(node.OuterHtml);
+                return;
+            }
+
             writer.Write("![");
             writer.Write(StringUtils.EscapeLinkText(alt));
             writer.Write("](");
@@ -69,6 +80,30 @@ namespace ReverseMarkdown.Converters {
                 writer.Write("\"");
             }
 
+            writer.Write(')');
+        }
+
+        private void WriteTelegramFallback(TextWriter writer, string alt, string src, bool isBase64Image)
+        {
+            var label = string.IsNullOrWhiteSpace(alt)
+                ? "Image"
+                : $"Image: {alt}";
+
+            var escapedLabel = StringUtils.EscapeTelegramMarkdownV2(label);
+            var canRenderAsLink = !string.IsNullOrEmpty(src) && (
+                !isBase64Image ||
+                Converter.Config.Base64Images == Config.Base64ImageHandling.SaveToFile
+            );
+
+            if (!canRenderAsLink) {
+                writer.Write(escapedLabel);
+                return;
+            }
+
+            writer.Write('[');
+            writer.Write(escapedLabel);
+            writer.Write("](");
+            writer.Write(StringUtils.EscapeTelegramMarkdownV2LinkUrl(src));
             writer.Write(')');
         }
 

@@ -13,6 +13,11 @@ namespace ReverseMarkdown.Converters {
 
         public override void Convert(TextWriter writer, HtmlNode node)
         {
+            if (Converter.Config.CommonMark) {
+                writer.Write(node.OuterHtml);
+                return;
+            }
+
             var content = TreatChildrenAsString(node);
 
             if (string.IsNullOrEmpty(content) || AlreadyStrikethrough()) {
@@ -20,7 +25,9 @@ namespace ReverseMarkdown.Converters {
                 return;
             }
 
-            var emphasis = Converter.Config.SlackFlavored ? "~" : "~~";
+            var emphasis = Converter.Config.SlackFlavored || Converter.Config.TelegramMarkdownV2
+                ? "~"
+                : "~~";
             TreatEmphasizeContentWhitespaceGuard(writer, content, emphasis);
         }
 
